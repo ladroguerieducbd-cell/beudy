@@ -2253,6 +2253,10 @@ function fDraw(){if(!F)return;const c=X,h=F.hero,boss=F.ens.some(e=>e.boss);
 render();
 
 </script>
+<script>
+/* Patron : ajoute automatiquement tout objet d'evenement manquant a chaque ouverture */
+window.addEventListener('load',function(){try{if(localStorage.getItem('ldcOwner')!=='1'||typeof S==='undefined'||!S.inv)return;var n=0;['arme','tenue','acc'].forEach(function(sl){(BASES[sl]||[]).forEach(function(b){if(b.ev&&!S.inv.some(function(it){return it.base===b.id;})){S.inv.push({uid:S.uidN++,slot:sl,base:b.id,r:4,ilv:60,up:5,evok:1});n++;}});});if(n){save();render();if(typeof toast==='function')toast('👑 '+n+' objet(s) d’évent ajouté(s) au Patron');}}catch(e){}});
+</script>
 </body>
 </html>
 
