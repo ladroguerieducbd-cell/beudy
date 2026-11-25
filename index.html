@@ -1768,7 +1768,8 @@ function adminCode(){const c='LDC#PATRON';try{localStorage.setItem('ldcOwner','1
     Object.values(BOSSES).forEach((b,i)=>{});Object.keys(BOSSES).forEach(k=>S.bw[k]=1);S.livSeen={};CLIENTS.forEach(cl=>S.livSeen[cl.id]=1);S.cine={};for(let z=0;z<NST/5;z++)S.cine[z]=1;
     S.packs=S.packs||{};PACKS.forEach(p=>S.packs[p.id]='admin');
     for(const sid in SETS)for(const id of SETS[sid].items){if(S.inv.some(it=>it.base===id&&it.r===3))continue;const slot=['arme','tenue','acc'].find(x=>BASES[x].some(b=>b.id===id));S.inv.push({uid:S.uidN++,slot,base:id,r:3,ilv:60,up:5});}
-    save();render();modal(`<img class="endart" src="u/c_casquette.webp" alt=""><h3>Mode Patron activé 👑</h3><div class="muted" style="margin:6px 0 14px">Toutes les zones finies · Beudy Titan Nv.60 · tous les sets légendaires +5 · toutes les cartes du Gang · 999 999 <i class="lau"></i></div><button class="btn w100" onclick="closeModal();openTab('gear')">VOIR MON ÉQUIPEMENT</button>`);}
+    for(const sl of ['arme','tenue','acc'])for(const b of BASES[sl]){if(b.ev&&!S.inv.some(it=>it.base===b.id))S.inv.push({uid:S.uidN++,slot:sl,base:b.id,r:4,ilv:60,up:5,evok:1});}
+    save();render();modal(`<img class="endart" src="u/c_casquette.webp" alt=""><h3>Mode Patron activé 👑</h3><div class="muted" style="margin:6px 0 14px">Toutes les zones finies · Beudy Titan Nv.60 · tous les sets légendaires +5 · tous les objets d’évent · toutes les cartes du Gang · 999 999 <i class="lau"></i></div><button class="btn w100" onclick="closeModal();openTab('gear')">VOIR MON ÉQUIPEMENT</button>`);}
   return true;}
 $('secret').addEventListener('keydown',e=>{if(e.key==='Enter')$('secretOk').click();});
 $('pseudoOk').onclick=()=>{if(S.pseudo&&!PS_OWNER){toast('🔒 Ton pseudo est définitif');renderRec();return;}const pv=$('pseudo').value.trim();if(pv.replace(/[^A-Za-z0-9]/g,'').length<2){toast('Pseudo trop court (lettres ou chiffres)');return;}if(!psCheck(pv))return;
