@@ -2260,4 +2260,64 @@ window.addEventListener('load',function(){try{if(localStorage.getItem('ldcOwner'
 </body>
 </html>
 
+<script>
+/* ===== Sauvegarde en ligne gratuite (Google, pseudo + code PIN) ===== */
+(function(){
+var GS_URL='https://script.google.com/macros/s/AKfycbyLwran2RFjWkkmQpKNy_A26M6VCT3Pid2K7VCrOvxOiUs4clVGTg9RvLkFWnqLuISZ/exec';
+var GK='beudyGS';
+function gsGet(){try{return JSON.parse(localStorage.getItem(GK)||'null');}catch(e){return null;}}
+function gsSet(o){try{if(o)localStorage.setItem(GK,JSON.stringify(o));else localStorage.removeItem(GK);}catch(e){}}
+function call(body,keep){return fetch(GS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),keepalive:!!keep,redirect:'follow'}).then(function(r){return r.json();});}
+var G={t:null,busy:false,again:false,last:0};
+function push(keep){var a=gsGet();if(!a)return Promise.resolve();if(G.busy){G.again=true;return Promise.resolve();}G.busy=true;
+  return saveCode().then(function(c){return call({a:'save',p:a.p,k:a.k,d:c},keep);}).then(function(r){
+    if(r&&r.ok){a.maj=Date.now();gsSet(a);paint();}
+    else if(r&&r.err==='pin'){gsSet(null);paint();toast('☁️ Code PIN refusé : reconnecte ta sauvegarde dans Records');}
+  }).catch(function(){}).finally(function(){G.busy=false;if(G.again){G.again=false;setTimeout(push,5000);}});}
+function soon(){if(!gsGet())return;clearTimeout(G.t);G.t=setTimeout(push,15000);}
+window.gsPush=push;
+// chaque sauvegarde locale programme un envoi en ligne
+var _save=window.save;if(typeof _save==='function'){window.save=function(){var r=_save.apply(this,arguments);try{soon();}catch(e){}return r;};}
+addEventListener('pagehide',function(){try{if(gsGet())push(true);}catch(e){}});
+document.addEventListener('visibilitychange',function(){if(document.hidden){try{if(gsGet())push(true);}catch(e){}}});
+function adopt(d,msg){S=d;var f=freshSave();for(var k in f)if(S[k]===undefined)S[k]=f[k];try{evClean();}catch(e){}var j=JSON.stringify(S);try{localStorage.setItem(KEY,j);}catch(e){}try{idbPut(j);}catch(e){}try{render();}catch(e){}if(msg)setTimeout(function(){try{render();toast(msg);}catch(e){}},400);}
+function pull(a){return call({a:'load',p:a.p,k:a.k}).then(function(r){if(!r||!r.ok)return r;return readCode(r.d).then(function(d){r.save=d;return r;});});}
+// au lancement : si la partie en ligne est plus avancée, on la reprend
+setTimeout(function(){var a=gsGet();if(!a)return;pull(a).then(function(r){if(!r)return;
+  if(r.ok&&r.save&&progOf(r.save)>progOf(S))adopt(r.save,'☁️ Partie récupérée depuis ta sauvegarde en ligne');
+  else if(r.ok)push();
+  else if(r.err==='pin'){gsSet(null);paint();}
+}).catch(function(){});},2500);
+function esc(x){return String(x||'').replace(/[<>&"']/g,'');}
+function paint(){var box=document.getElementById('gsBox');if(!box)return;var a=gsGet();
+  if(a){var t=a.maj?new Date(a.maj).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'en cours…';
+    box.innerHTML='<div class="f" style="font-size:16px;margin-bottom:6px">☁️ Sauvegarde en ligne : activée</div><div class="muted" style="font-size:13px;margin-bottom:8px">Compte <b style="color:#fff">'+esc(a.p)+'</b> · dernière sauvegarde : '+t+'<br>Ta partie est envoyée toute seule. Sur un autre téléphone, entre le même pseudo et le même code PIN pour la retrouver.</div><button class="btn vio w100" id="gsNow">☁️ SAUVEGARDER MAINTENANT</button><button class="btn w100" style="margin-top:6px" id="gsOff">Se déconnecter de ce téléphone</button>';
+    document.getElementById('gsNow').onclick=function(){toast('☁️ Envoi en cours…');push().then(function(){var b=gsGet();if(b&&b.maj&&Date.now()-b.maj<20000)toast('☁️ Partie sauvegardée en ligne');});};
+    document.getElementById('gsOff').onclick=function(){gsSet(null);paint();toast('Sauvegarde en ligne déconnectée de ce téléphone (ta partie reste en ligne)');};
+  }else{
+    box.innerHTML='<div class="f" style="font-size:16px;margin-bottom:6px">☁️ Sauvegarde en ligne gratuite</div><div class="muted" style="font-size:13px;margin-bottom:8px">Choisis un pseudo et un code PIN secret (4 à 6 chiffres). Ta partie sera sauvegardée automatiquement, et tu la retrouveras sur n\'importe quel téléphone.</div><input id="gsP" maxlength="16" placeholder="Pseudo" style="width:100%;margin-bottom:6px" value="'+esc(S.pseudo)+'"><input id="gsK" inputmode="numeric" maxlength="6" placeholder="Code PIN (4 à 6 chiffres)" style="width:100%;margin-bottom:8px" type="password"><button class="btn gold w100" id="gsGo">☁️ ACTIVER / RETROUVER MA PARTIE</button><div class="muted" style="font-size:11px;margin-top:6px">Note bien ton code PIN : il est impossible de le retrouver.</div>';
+    document.getElementById('gsGo').onclick=link;
+  }}
+window.gsPaint=paint;
+function link(){var p=(document.getElementById('gsP').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16),k=(document.getElementById('gsK').value||'').trim();
+  if(p.length<3){toast('Pseudo trop court (3 caractères minimum)');return;}
+  if(!/^\d{4,6}$/.test(k)){toast('Le code PIN doit faire 4 à 6 chiffres');return;}
+  toast('☁️ Connexion…');var a={p:p,k:k};
+  call({a:'exists',p:p,k:k}).then(function(r){if(!r||!r.ok){toast(r&&r.err==='bloque'?'Trop d\'essais : réessaie dans 1 heure':'Connexion impossible, réessaie');return;}
+    if(!r.existe){return saveCode().then(function(c){return call({a:'save',p:p,k:k,d:c});}).then(function(s){
+      if(s&&s.ok){a.maj=Date.now();gsSet(a);paint();toast('☁️ Sauvegarde en ligne activée !');}
+      else toast(s&&s.err==='reserve'?'Ce pseudo est réservé : choisis-en un autre':'Activation impossible, réessaie');});}
+    return pull(a).then(function(x){if(!x||!x.ok){toast(x&&x.err==='pin'?'Code PIN incorrect pour ce pseudo':'Connexion impossible, réessaie');return;}
+      gsSet(a);
+      if(x.save&&progOf(x.save)>progOf(S)){modal('<h3 style="color:var(--gold)">☁️ Partie trouvée !</h3><div class="muted" style="margin:6px 0 12px">Ta partie en ligne : Beudy Nv.'+(x.save.lv||1)+' · '+(x.save.cleared||0)+' niveaux finis.<br>Elle va remplacer la partie de ce téléphone.</div><button class="btn gold w100" id="gsYes">✅ RÉCUPÉRER MA PARTIE</button><button class="btn w100" style="margin-top:6px" onclick="closeModal()">Annuler</button>');
+        setTimeout(function(){var y=document.getElementById('gsYes');if(y)y.onclick=function(){closeModal();adopt(x.save,'☁️ Partie récupérée !');a.maj=Date.now();gsSet(a);paint();};},50);}
+      else{push().then(function(){toast('☁️ Sauvegarde en ligne reconnectée');});paint();}
+    });
+  }).catch(function(){toast('Connexion impossible, vérifie ton réseau');});}
+// place le bloc dans l'onglet Records, au-dessus du code de sauvegarde
+function mount(){var out=document.getElementById('saveOut');if(!out||document.getElementById('gsBox'))return;var card=out.closest('.card');if(!card)return;var b=document.createElement('div');b.className='card';b.id='gsBox';card.parentNode.insertBefore(b,card);paint();}
+var _rr=window.renderRec;if(typeof _rr==='function'){window.renderRec=function(){var r=_rr.apply(this,arguments);try{mount();}catch(e){}return r;};}
+setTimeout(function(){try{mount();}catch(e){}},1500);
+})();
+</script>
 </body></html>
