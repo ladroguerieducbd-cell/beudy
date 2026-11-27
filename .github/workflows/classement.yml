@@ -13,25 +13,38 @@ jobs:
       - name: Recopier le tableau des scores du site
         run: |
           python3 - <<'PY'
-          import re, json, html, urllib.request
-          u='https://www.ladroguerieducbd.fr/concours-beudy.html'
-          t=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 BEUDY-lb'}),timeout=30).read().decode('utf-8','ignore')
+          import re, json, html, time, urllib.request
+          URLS=['https://www.ladroguerieducbd.fr/concours-beudy.html','https://ladroguerieducbd.fr/concours-beudy.html']
+          t=None
+          for essai in range(4):
+              for u in URLS:
+                  try:
+                      t=urllib.request.urlopen(urllib.request.Request(u+'?no-cache=1',headers={'User-Agent':'Mozilla/5.0 BEUDY-lb'}),timeout=45).read().decode('utf-8','ignore')
+                      if 'class="bdylb"' in t: break
+                  except Exception as e:
+                      print('essai',essai+1,u,'echec :',e)
+                      t=None
+              if t and 'class="bdylb"' in t: break
+              time.sleep(20)
+          if not t or 'class="bdylb"' not in t:
+              print('site injoignable pour le moment, classement inchange (prochain essai dans 1 h)')
+              raise SystemExit(0)
           s=t[t.find('class="bdylb"'):]
           rows=[]
           for n,sc in re.findall(r'<td class="n">(.*?)</td>\s*<td class="s">(.*?)<small',s,re.S):
               n=html.unescape(re.sub('<[^>]+>','',n)).strip(); sc=re.sub(r'[^0-9]','',html.unescape(sc))
-              if not n or 'place libre' in n or not sc: continue
+              if not n or 'place libre' in n.lower() or not sc: continue
               rows.append({'n':n,'p':re.sub('[^A-Z0-9]','',n.upper())[:14],'s':int(sc)})
-          m=re.search(r'derni(?:&egrave;|è)re mise (?:&agrave;|à) jour\s*:\s*([^<]*)',s)
+          m=re.search(r'derni(?:è|&egrave;)re mise (?:à|&agrave;) jour\s*:\s*([^<]*)',s)
           maj=html.unescape(m.group(1)).replace('à ','').strip() if m else ''
           ev=re.search(r'D[ée]fi #(\d+)',html.unescape(s)); ev='S'+(ev.group(1) if ev else '1')
           new={'ev':ev,'maj':maj,'rows':rows[:10]}
           try: old=json.load(open('lb.json'))
           except Exception: old=None
-          if 'class="bdylb"' in t and old!=new:
+          if old!=new:
               json.dump(new,open('lb.json','w'),ensure_ascii=False)
-              print('mis à jour',new)
-          else: print('inchangé')
+              print('mis a jour',new)
+          else: print('inchange')
           PY
       - name: Enregistrer
         run: |
